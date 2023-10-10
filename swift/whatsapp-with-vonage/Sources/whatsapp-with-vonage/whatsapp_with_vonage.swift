@@ -2,7 +2,7 @@ import Vapor
 import Foundation
 import SwiftJWT
 
-func sendMessage(req: Request) throws -> EventLoopFuture<Response> {
+func main(req: Request) async throws -> Response {
     guard let vonageApiKey = ProcessInfo.processInfo.environment["VONAGE_API_KEY"],
           let vonageAccountSecret = ProcessInfo.processInfo.environment["VONAGE_ACCOUNT_SECRET"],
           let vonageSignatureSecret = ProcessInfo.processInfo.environment["VONAGE_SIGNATURE_SECRET"],
@@ -12,14 +12,13 @@ func sendMessage(req: Request) throws -> EventLoopFuture<Response> {
     
     // GET METHOD TO RETURN HTML
     if req.method == .GET {
-        let htmlData = try Data(contentsOf: URL(fileURLWithPath: "path_to_static_file/index.html"))
+        let htmlData = try Data(contentsOf: URL(fileURLWithPath: "/templates/swift/whatsapp-with-vonage/Sources/whatsapp-with-vonage/Static/index.html"))
         let headers = HTTPHeaders([("Content-Type", "text/html; charset=utf-8")])
-        let response = Response(
+        return .init(
             status: .ok,
             headers: headers,
             body: .init(data: htmlData)
         )
-        return req.eventLoop.makeSucceededFuture(response)
     }
     
     // TOKEN AND JWT VERIFICATION
@@ -61,12 +60,11 @@ func sendMessage(req: Request) throws -> EventLoopFuture<Response> {
         channel: "whatsapp"
     )
     
-    return req.client.post("https://messages-sandbox.nexmo.com/v1/messages") { req in
+    let clientResponse = try await req.client.post("https://messages-sandbox.nexmo.com/v1/messages") { req in
         try req.content.encode(vonageMessage)
         req.headers.add(name: "Content-Type", value: "application/json")
         req.headers.add(name: "Authorization", value: "Basic \(basicAuthToken)")
-    }.flatMap { response in
-        let response = Response(status: .ok)
-        return req.eventLoop.makeSucceededFuture(response)
     }
+    
+    return .init(status: .ok)
 }
